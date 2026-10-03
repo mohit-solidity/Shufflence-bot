@@ -21,7 +21,14 @@ const {
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
-const TEAM_ROLE_NAME = process.env.TEAM_ROLE_NAME || "Shufflence_Bot";
+const TEAM_ROLE_NAME = process.env.TEAM_ROLE_NAME || "Owner";
+
+console.log("ENV CHECK:");
+console.log("TOKEN exists:", Boolean(process.env.DISCORD_TOKEN));
+console.log("TOKEN length:", process.env.DISCORD_TOKEN?.length || 0);
+console.log("CLIENT_ID exists:", Boolean(process.env.CLIENT_ID));
+console.log("GUILD_ID exists:", Boolean(process.env.GUILD_ID));
+console.log("TEAM_ROLE_NAME:", process.env.TEAM_ROLE_NAME);
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
     console.error("Missing DISCORD_TOKEN, CLIENT_ID, or GUILD_ID in .env");
