@@ -21,17 +21,10 @@ const {
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
-const TEAM_ROLE_NAME = process.env.TEAM_ROLE_NAME || "Owner";
-
-console.log("ENV CHECK:");
-console.log("TOKEN exists:", Boolean(process.env.DISCORD_TOKEN));
-console.log("TOKEN length:", process.env.DISCORD_TOKEN?.length || 0);
-console.log("CLIENT_ID exists:", Boolean(process.env.CLIENT_ID));
-console.log("GUILD_ID exists:", Boolean(process.env.GUILD_ID));
-console.log("TEAM_ROLE_NAME:", process.env.TEAM_ROLE_NAME);
+const TEAM_ROLE_NAME = process.env.TEAM_ROLE_NAME || "Shufflence_Bot";
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
-    console.error("Missing DISCORD_TOKEN, CLIENT_ID, or GUILD_ID in .env");
+    console.error("[ERROR] Missing DISCORD_TOKEN, CLIENT_ID, or GUILD_ID in your environment configuration (.env).");
     process.exit(1);
 }
 
@@ -42,23 +35,21 @@ const client = new Client({
 const commands = [
     new SlashCommandBuilder()
         .setName("setup-help-panel")
-        .setDescription("Setup the Community Help panel.")
+        .setDescription("Deploy the Community Help panel.")
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
     new SlashCommandBuilder()
         .setName("close-ticket")
-        .setDescription("Close the current help request ticket.")
+        .setDescription("Close the active help request ticket.")
 ].map(command => command.toJSON());
 
 async function registerCommands() {
     const rest = new REST({ version: "10" }).setToken(TOKEN);
-
     await rest.put(
         Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
         { body: commands }
     );
-
-    console.log("✅ Slash commands registered.");
+    console.log("[INFO] Slash commands successfully registered.");
 }
 
 function isTeamMember(interaction) {
@@ -79,18 +70,19 @@ function getTeamRole(guild) {
 
 function buildHelpPanel() {
     const embed = new EmbedBuilder()
-        .setTitle("❤️ Community Help")
+        .setTitle("❤️ Community Help Panel")
         .setDescription(
-            "Need help with an essential expense?\n\n" +
-            "You can submit a private request for things such as:\n\n" +
-            "🍔 Food\n" +
-            "💡 Bills\n" +
+            "Need assistance with an essential expense?\n\n" +
+            "You may submit a confidential request for items such as:\n\n" +
+            "🍔 Food & Groceries\n" +
+            "💡 Utility Bills\n" +
             "🚗 Transportation\n" +
-            "🏠 Essential expenses\n" +
-            "📦 Other necessary expenses\n\n" +
-            "Your request will only be visible to the request team."
+            "🏠 Housing & Essential Expenses\n" +
+            "📦 Other Critical Needs\n\n" +
+            "Your ticket will remain strictly private between you and our support team."
         )
-        .setFooter({ text: "Please provide accurate information. Requests are reviewed privately." });
+        .setColor(0x5865F2)
+        .setFooter({ text: "Please ensure all provided details are accurate." });
 
     const button = new ButtonBuilder()
         .setCustomId("help:open")
@@ -117,7 +109,7 @@ function buildButtonsForStatus(status) {
 
             new ButtonBuilder()
                 .setCustomId("help:close")
-                .setLabel("Close")
+                .setLabel("Close Ticket")
                 .setEmoji("🔒")
                 .setStyle(ButtonStyle.Secondary),
 
@@ -138,7 +130,7 @@ function buildButtonsForStatus(status) {
             new ButtonBuilder()
                 .setCustomId("help:delete")
                 .setLabel("Delete Ticket")
-                .setEmoji("🗑️️")
+                .setEmoji("🗑️")
                 .setStyle(ButtonStyle.Danger)
         );
     } else {
@@ -164,7 +156,7 @@ function buildButtonsForStatus(status) {
 
             new ButtonBuilder()
                 .setCustomId("help:close")
-                .setLabel("Close")
+                .setLabel("Close Ticket")
                 .setEmoji("🔒")
                 .setStyle(ButtonStyle.Secondary)
         );
@@ -177,7 +169,7 @@ function buildConfirmButtons(actionType) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`help:${actionType}_confirm`)
-            .setLabel("Yes, Confirm")
+            .setLabel("Confirm Action")
             .setEmoji("✔️")
             .setStyle(ButtonStyle.Danger),
 
@@ -212,7 +204,7 @@ async function createHelpTicket(interaction, data) {
 
     if (!teamRole) {
         await interaction.reply({
-            content: `❌ I couldn't find a role named **${TEAM_ROLE_NAME}**. Create that role and give it to your staff members.`,
+            content: `❌ Configuration Error: Unable to locate the team role **${TEAM_ROLE_NAME}**. Please ensure it exists on this server.`,
             flags: MessageFlags.Ephemeral
         });
         return;
@@ -226,7 +218,7 @@ async function createHelpTicket(interaction, data) {
 
     if (existing) {
         await interaction.reply({
-            content: `❌ You already have an open help request: ${existing}`,
+            content: `❌ You already possess an active support ticket: ${existing}`,
             flags: MessageFlags.Ephemeral
         });
         return;
@@ -245,7 +237,6 @@ async function createHelpTicket(interaction, data) {
         type: ChannelType.GuildText,
         parent: category.id,
         topic: `help-requester:${interaction.user.id}`,
-
         permissionOverwrites: [
             {
                 id: guild.roles.everyone.id,
@@ -286,19 +277,20 @@ async function createHelpTicket(interaction, data) {
         ]
     });
 
-    const proofText = data.proof?.trim() ? data.proof.trim() : "No proof/link provided.";
+    const proofText = data.proof?.trim() ? data.proof.trim() : "No evidence/links supplied.";
 
     const embed = new EmbedBuilder()
         .setTitle("❤️ New Community Help Request")
-        .setDescription("A member submitted a private help request.\nOnly the requester and members with the Team role can see this channel.")
+        .setDescription("A confidential support ticket has been opened.\nAccess is restricted exclusively to the requester and authorized team members.")
+        .setColor(0x5865F2)
         .addFields(
-            { name: "👤 Discord User", value: `${interaction.user} (\`${interaction.user.tag}\`)` },
-            { name: "🆔 Discord ID", value: `\`${interaction.user.id}\`` },
-            { name: "🆘 What do they need?", value: data.need },
-            { name: "💰 Amount Needed", value: data.amount },
-            { name: "📝 Explanation", value: data.explanation },
+            { name: "👤 Requester", value: `${interaction.user} (\`${interaction.user.tag}\`)` },
+            { name: "🆔 User ID", value: `\`${interaction.user.id}\`` },
+            { name: "🆘 Nature of Assistance", value: data.need },
+            { name: "💰 Requested Amount", value: data.amount },
+            { name: "📝 Detailed Explanation", value: data.explanation },
             { name: "🔗 Proof / Evidence", value: proofText },
-            { name: "💳 Payment Method", value: data.payment }
+            { name: "💳 Preferred Payout", value: data.payment }
         )
         .setTimestamp()
         .setFooter({ text: "Status: PENDING REVIEW" });
@@ -310,18 +302,17 @@ async function createHelpTicket(interaction, data) {
     });
 
     await interaction.reply({
-        content: `✅ Your request was submitted privately: ${channel}`,
+        content: `✅ Your support request has been created securely: ${channel}`,
         flags: MessageFlags.Ephemeral
     });
 }
 
 client.once("ready", async () => {
-    console.log(`🤖 Logged in as ${client.user.tag}`);
-
+    console.log(`[INFO] Authenticated successfully as ${client.user.tag}`);
     try {
         await registerCommands();
     } catch (error) {
-        console.error("❌ Failed to register slash commands:", error);
+        console.error("[ERROR] Failed to register slash commands:", error);
     }
 });
 
@@ -336,7 +327,7 @@ client.on("interactionCreate", async interaction => {
             if (interaction.commandName === "close-ticket") {
                 if (!interaction.channel || !interaction.channel.topic?.startsWith("help-requester:")) {
                     await interaction.reply({
-                        content: "❌ This command can only be used inside a help-request ticket.",
+                        content: "❌ This command is restricted for use inside verified help tickets.",
                         flags: MessageFlags.Ephemeral
                     });
                     return;
@@ -344,7 +335,7 @@ client.on("interactionCreate", async interaction => {
 
                 if (!isTeamMember(interaction)) {
                     await interaction.reply({
-                        content: "❌ Only Team members can close help requests.",
+                        content: "❌ Unauthorized: Only team personnel can execute close procedures.",
                         flags: MessageFlags.Ephemeral
                     });
                     return;
@@ -358,12 +349,12 @@ client.on("interactionCreate", async interaction => {
         if (interaction.isButton() && interaction.customId === "help:open") {
             const modal = new ModalBuilder()
                 .setCustomId("help:form")
-                .setTitle("Community Help Request");
+                .setTitle("Community Help Request Form");
 
             const need = new TextInputBuilder()
                 .setCustomId("need")
                 .setLabel("What do you need help with?")
-                .setPlaceholder("Food, bill, transportation, etc.")
+                .setPlaceholder("Food, utility bill, transportation, etc.")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true)
                 .setMaxLength(100);
@@ -379,15 +370,15 @@ client.on("interactionCreate", async interaction => {
             const explanation = new TextInputBuilder()
                 .setCustomId("explanation")
                 .setLabel("Short explanation")
-                .setPlaceholder("Briefly explain what happened and why you need help.")
+                .setPlaceholder("Briefly explain your current circumstances.")
                 .setStyle(TextInputStyle.Paragraph)
                 .setRequired(true)
                 .setMaxLength(1000);
 
             const proof = new TextInputBuilder()
                 .setCustomId("proof")
-                .setLabel("Proof / evidence link (if needed)")
-                .setPlaceholder("Paste an image/file link, or type N/A")
+                .setLabel("Proof / evidence link (optional)")
+                .setPlaceholder("Paste image link or enter N/A")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(false)
                 .setMaxLength(500);
@@ -395,7 +386,7 @@ client.on("interactionCreate", async interaction => {
             const payment = new TextInputBuilder()
                 .setCustomId("payment")
                 .setLabel("Preferred payment method")
-                .setPlaceholder("Direct bill payment, PayPal, bank transfer, etc.")
+                .setPlaceholder("Direct bill, PayPal, bank transfer, etc.")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true)
                 .setMaxLength(100);
@@ -428,7 +419,7 @@ client.on("interactionCreate", async interaction => {
         if (interaction.isButton() && interaction.customId.startsWith("help:")) {
             if (!interaction.channel?.topic?.startsWith("help-requester:")) {
                 await interaction.reply({
-                    content: "❌ This isn't a help-request ticket.",
+                    content: "❌ Error: Invalid ticket channel context.",
                     flags: MessageFlags.Ephemeral
                 });
                 return;
@@ -436,18 +427,18 @@ client.on("interactionCreate", async interaction => {
 
             if (!isTeamMember(interaction)) {
                 await interaction.reply({
-                    content: "❌ Only Team members can use these staff controls.",
+                    content: "❌ Unauthorized: Staff permissions are required.",
                     flags: MessageFlags.Ephemeral
                 });
                 return;
             }
 
-            // Handle cancellation for prompt confirmations
             if (interaction.customId === "help:cancel") {
                 await interaction.update({
-                    content: "❌ Action cancelled.",
+                    content: "✖️ Operation cancelled.",
                     components: []
-                });
+                }).catch(() => {});
+                setTimeout(() => interaction.deleteReply().catch(() => {}), 2500);
                 return;
             }
 
@@ -462,7 +453,7 @@ client.on("interactionCreate", async interaction => {
 
             if (interaction.customId === "help:approve") {
                 if (currentFooter.includes("Status: APPROVED")) {
-                    await interaction.reply({ content: "❌ This request is already approved.", flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: "⚠️️ Notice: This request is already approved.", flags: MessageFlags.Ephemeral });
                     return;
                 }
                 await updateStatus(interaction, "APPROVED", "✅", "APPROVED REQUESTS");
@@ -471,11 +462,11 @@ client.on("interactionCreate", async interaction => {
 
             if (interaction.customId === "help:reject") {
                 if (currentFooter.includes("Status: REJECTED")) {
-                    await interaction.reply({ content: "❌ This request is already rejected.", flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: "⚠️ Notice: This request is already rejected.", flags: MessageFlags.Ephemeral });
                     return;
                 }
                 await interaction.reply({
-                    content: "⚠️ Are you sure you want to reject this request?",
+                    content: "⚠️ Are you certain you wish to reject this request?",
                     components: [buildConfirmButtons("reject")],
                     flags: MessageFlags.Ephemeral
                 });
@@ -483,14 +474,15 @@ client.on("interactionCreate", async interaction => {
             }
 
             if (interaction.customId === "help:reject_confirm") {
-                await interaction.message.delete().catch(() => {});
+                await interaction.update({ content: "✔️ Rejection verified. Processing...", components: [] }).catch(() => {});
                 await updateStatus(interaction, "REJECTED", "❌", "REJECTED REQUESTS");
+                setTimeout(() => interaction.deleteReply().catch(() => {}), 2000);
                 return;
             }
 
             if (interaction.customId === "help:unapproved") {
                 if (currentFooter.includes("Status: PENDING REVIEW")) {
-                    await interaction.reply({ content: "❌ This request is already pending review.", flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: "⚠️ Notice: This request is already pending.", flags: MessageFlags.Ephemeral });
                     return;
                 }
                 await updateStatus(interaction, "PENDING REVIEW", "⏳", "HELP REQUESTS");
@@ -499,18 +491,18 @@ client.on("interactionCreate", async interaction => {
 
             if (interaction.customId === "help:info") {
                 const requesterId = interaction.channel.topic.split(":")[1];
-                await interaction.channel.send(`<@${requesterId}> 📝 The team needs more information before reviewing your request. Please reply here with the missing details or proof.`);
-                await interaction.reply({ content: "✅ The requester has been asked for more information.", flags: MessageFlags.Ephemeral });
+                await interaction.channel.send(`<@${requesterId}> 📝 Support staff requires further documentation/information. Please provide clarification in this thread.`);
+                await interaction.reply({ content: "✅ Request for additional info dispatched.", flags: MessageFlags.Ephemeral });
                 return;
             }
 
             if (interaction.customId === "help:close") {
                 if (currentFooter.includes("Status: CLOSED")) {
-                    await interaction.reply({ content: "❌ This ticket is already closed.", flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: "⚠️ Notice: This ticket is already closed.", flags: MessageFlags.Ephemeral });
                     return;
                 }
                 await interaction.reply({
-                    content: "⚠️ Are you sure you want to close this ticket?",
+                    content: "⚠️ Are you certain you wish to close this ticket?",
                     components: [buildConfirmButtons("close")],
                     flags: MessageFlags.Ephemeral
                 });
@@ -518,8 +510,9 @@ client.on("interactionCreate", async interaction => {
             }
 
             if (interaction.customId === "help:close_confirm") {
-                await interaction.message.delete().catch(() => {});
+                await interaction.update({ content: "🔒 Closing ticket...", components: [] }).catch(() => {});
                 await closeTicket(interaction);
+                setTimeout(() => interaction.deleteReply().catch(() => {}), 2000);
                 return;
             }
 
@@ -530,7 +523,7 @@ client.on("interactionCreate", async interaction => {
 
             if (interaction.customId === "help:delete") {
                 await interaction.reply({
-                    content: "⚠️ Are you sure you want to permanently delete this ticket?",
+                    content: "⚠️ **WARNING:** This action will permanently delete the channel. Proceed?",
                     components: [buildConfirmButtons("delete")],
                     flags: MessageFlags.Ephemeral
                 });
@@ -538,19 +531,19 @@ client.on("interactionCreate", async interaction => {
             }
 
             if (interaction.customId === "help:delete_confirm") {
-                await interaction.reply({ content: "🗑️ Deleting ticket...", flags: MessageFlags.Ephemeral });
+                await interaction.update({ content: "🗑️ Purging channel data...", components: [] }).catch(() => {});
                 setTimeout(() => {
                     interaction.channel.delete().catch(() => {});
-                }, 1000);
+                }, 1500);
                 return;
             }
         }
     } catch (error) {
-        console.error("Interaction error:", error);
+        console.error("[ERROR] Unhandled interaction error:", error);
 
         if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
-                content: "❌ Something went wrong while processing this request.",
+                content: "❌ An internal exception occurred while processing this action.",
                 flags: MessageFlags.Ephemeral
             }).catch(() => {});
         }
@@ -584,10 +577,10 @@ async function updateStatus(interaction, status, emoji, targetCategoryName) {
     const targetCategory = await findOrCreateCategory(interaction.guild, targetCategoryName);
     await interaction.channel.setParent(targetCategory.id).catch(() => {});
 
-    await interaction.channel.send(`${emoji} **Request status changed to ${status}.** Staff member: ${interaction.user}`);
+    await interaction.channel.send(`${emoji} **Ticket status updated to ${status}.** Handled by: ${interaction.user}`);
 
     if (interaction.deferred) {
-        await interaction.editReply({ content: `✅ Request marked as **${status}** and moved to **${targetCategoryName}**.` });
+        await interaction.editReply({ content: `✅ Successfully marked as **${status}** and transferred to **${targetCategoryName}**.` });
     }
 }
 
@@ -631,10 +624,10 @@ async function closeTicket(interaction) {
         }).catch(() => {});
     }
 
-    await interaction.channel.send(`🔒 This help request has been closed by ${interaction.user}.`);
+    await interaction.channel.send(`🔒 This ticket has been closed securely by ${interaction.user}.`);
 
     if (interaction.deferred) {
-        await interaction.editReply({ content: "✅ Ticket closed and moved to Closed Requests." });
+        await interaction.editReply({ content: "✅ Ticket closed successfully, moved to archives, and delete option initialized." });
     }
 }
 
@@ -679,10 +672,10 @@ async function reopenTicket(interaction) {
         }).catch(() => {});
     }
 
-    await interaction.channel.send(`🔓 This help request has been reopened by ${interaction.user}.`);
+    await interaction.channel.send(`🔓 This support request has been reopened by ${interaction.user}.`);
 
     if (interaction.deferred) {
-        await interaction.editReply({ content: "✅ Ticket reopened and moved back to active status." });
+        await interaction.editReply({ content: "✅ Ticket successfully restored to active status." });
     }
 }
 
